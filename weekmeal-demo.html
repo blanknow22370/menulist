@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>这周吃啥 · 算法演示</title>
+<style>
+*{box-sizing:border-box}
+:root{
+  --board:#16241F;
+  --chalk:#EDEAE0;
+  --chalk-dim:#9AA79D;
+  --line:rgba(237,234,224,.22);
+  --line-2:rgba(237,234,224,.4);
+  --y:#E3C567;
+  --b:#8AB6D6;
+  --r:#E08A8A;
+  --g:#9BC48A;
+  --kaiti:"楷体","KaiTi","STKaiti","Kaiti SC",serif;
+  --heiti:"Microsoft YaHei","PingFang SC","Hiragino Sans GB","Noto Sans SC",system-ui,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,"SF Mono",monospace;
+}
+html,body{margin:0}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(1100px 520px at 12% -8%, rgba(227,197,103,.055), transparent 62%),
+    radial-gradient(880px 460px at 98% 2%, rgba(138,182,214,.055), transparent 58%),
+    var(--board);
+  color:var(--chalk);
+  font:15px/1.62 var(--heiti);
+  -webkit-font-smoothing:antialiased;
+  padding:22px 16px 72px;
+}
+body::after{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");
+}
+.wrap{position:relative;z-index:1;max-width:1160px;margin:0 auto}
+
+/* ---------- 头部 ---------- */
+.head{display:flex;flex-wrap:wrap;align-items:flex-end;gap:14px 20px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+h1{
+  font-family:var(--kaiti);font-weight:400;margin:0;
+  font-size:clamp(32px,7vw,50px);line-height:1;letter-spacing:.05em;
+  text-shadow:0 0 14px rgba(237,234,224,.16),0 0 1px rgba(237,234,224,.55);
+}
+.head-meta{flex:1 1 220px;color:var(--chalk-dim);font-size:13.5px}
+.head-meta b{color:var(--chalk);font-weight:600}
+.btn{
+  font:inherit;color:var(--chalk);background:transparent;cursor:pointer;
+  border:1px dashed var(--line-2);border-radius:2px;padding:9px 18px;
+  letter-spacing:.06em;transition:background .15s,border-color .15s;
+}
+.btn:hover{background:rgba(237,234,224,.09);border-color:var(--chalk)}
+.btn:focus-visible{outline:2px solid var(--y);outline-offset:2px}
+.btn.solid{border-style:solid;border-color:rgba(227,197,103,.55);color:var(--y)}
+.btn.solid:hover{background:rgba(227,197,103,.12)}
+
+/* ---------- 参数 ---------- */
+.panel{
+  margin:16px 0 0;padding:14px 16px;border:1px dashed var(--line);border-radius:2px;
+  display:flex;flex-wrap:wrap;gap:12px 26px;align-items:center;background:rgba(237,234,224,.022);
+}
+.field{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--chalk-dim)}
+.field label{white-space:nowrap}
+.seg{display:flex;border:1px dashed var(--line-2);border-radius:2px;overflow:hidden}
+.seg button{font:inherit;font-size:13px;background:transparent;border:0;color:var(--chalk-dim);padding:5px 13px;cursor:pointer}
+.seg button+button{border-left:1px dashed var(--line)}
+.seg button[aria-pressed="true"]{background:rgba(227,197,103,.16);color:var(--y)}
+input[type=range]{width:110px;accent-color:#E3C567;background:transparent}
+.val{font-family:var(--mono);color:var(--chalk);min-width:2.4em;display:inline-block}
+.chk{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--chalk-dim);cursor:pointer}
+.chk input{accent-color:#E3C567;width:15px;height:15px}
+
+/* ---------- 摘要 ---------- */
+.summary{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 6px}
+.chip{border:1px dashed var(--line);border-radius:2px;padding:8px 14px;font-size:13px;color:var(--chalk-dim)}
+.chip b{font-family:var(--mono);font-size:17px;color:var(--chalk);font-weight:600;margin-right:7px;letter-spacing:-.02em}
+.chip.warn b{color:var(--r)}
+.chip.good b{color:var(--g)}
+
+/* ---------- 排班表 ---------- */
+.grid{
+  display:grid;gap:9px;margin-top:16px;
+  grid-template-columns:34px repeat(7,minmax(0,1fr));
+}
+.corner{}
+.dayhead{
+  font-family:var(--kaiti);font-size:16px;color:var(--chalk-dim);text-align:center;
+  padding-bottom:2px;letter-spacing:.08em;
+}
+.dayhead.today{color:var(--y)}
+.rowhead{
+  font-family:var(--kaiti);font-size:17px;color:var(--chalk-dim);
+  display:flex;align-items:center;justify-content:center;letter-spacing:.05em;
+}
+.chit{
+  position:relative;display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
+  border:1px dashed var(--line);border-radius:2px;background:rgba(237,234,224,.028);
+  padding:9px 10px 10px;min-height:96px;
+  transform:rotate(var(--tilt,0deg));
+  transition:background .15s,border-color .15s,transform .15s;
+}
+.chit:hover{background:rgba(237,234,224,.075);border-color:var(--line-2);transform:rotate(0) translateY(-1px)}
+.chit:focus-visible{outline:2px solid var(--y);outline-offset:2px}
+.chit.locked{border-style:solid;border-color:rgba(227,197,103,.5)}
+.chit.today{border-color:rgba(227,197,103,.42)}
+.chit-shop{font-family:var(--kaiti);font-size:18px;line-height:1.25;letter-spacing:.02em;display:block}
+.chit-tag{font-size:11.5px;color:var(--chalk-dim);display:block;margin-top:1px}
+.chit-price{font-family:var(--mono);font-size:13px;color:var(--chalk-dim);margin-top:6px;display:flex;align-items:baseline;gap:5px}
+.chit-price b{color:var(--chalk);font-size:15px}
+.chit-deal{color:var(--y);font-size:11.5px}
+.bar{height:3px;background:rgba(237,234,224,.14);margin-top:7px;border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--g)}
+.bar.mid i{background:var(--y)}
+.bar.low i{background:var(--r)}
+.chit-day{display:none}
+.chit-lockbadge{position:absolute;top:6px;right:7px;font-size:11px;color:var(--y)}
+
+/* ---------- 账目 ---------- */
+.audit{margin-top:34px;padding-top:20px;border-top:1px solid var(--line);display:grid;gap:28px;grid-template-columns:repeat(auto-fit,minmax(255px,1fr))}
+.audit h2{font-family:var(--kaiti);font-weight:400;font-size:22px;margin:0 0 12px;letter-spacing:.05em}
+.person{display:grid;grid-template-columns:52px 1fr auto;gap:10px;align-items:center;margin-bottom:9px;font-size:13.5px}
+.person .nm{font-family:var(--kaiti);font-size:17px}
+.person .mn{font-family:var(--mono);font-size:12.5px;color:var(--chalk-dim);text-align:right;white-space:nowrap}
+.person .mn.over{color:var(--r)}
+.prow{display:flex;justify-content:space-between;font-size:13.5px;margin-bottom:7px;color:var(--chalk-dim)}
+.prow .k{color:var(--chalk)}
+.neg{color:var(--r)}
+.note{font-size:12.5px;color:var(--chalk-dim);margin-top:9px;line-height:1.6}
+.excl{font-size:13px;margin-bottom:8px;line-height:1.5}
+.excl s{color:var(--chalk-dim);text-decoration-color:var(--r)}
+.excl em{font-family:var(--kaiti);font-style:normal;color:var(--r);font-size:14px}
+
+/* ---------- 明细弹层 ---------- */
+dialog{
+  border:1px solid var(--line-2);border-radius:3px;padding:0;color:var(--chalk);
+  background:linear-gradient(180deg,#1B2B24,#152220);
+  width:min(560px,93vw);max-height:88vh;overflow:auto;
+  box-shadow:0 24px 60px rgba(0,0,0,.6);
+}
+dialog::backdrop{background:rgba(8,14,12,.72)}
+.dlg-head{position:sticky;top:0;background:#1B2B24;padding:16px 20px 12px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:14px;align-items:baseline}
+.dlg-head h3{font-family:var(--kaiti);font-weight:400;font-size:24px;margin:0;letter-spacing:.04em}
+.dlg-head .sub{font-size:12.5px;color:var(--chalk-dim);margin-top:3px}
+.dlg-body{padding:16px 20px 22px}
+.dlg-sec{font-family:var(--kaiti);font-size:17px;color:var(--chalk-dim);margin:20px 0 10px;letter-spacing:.06em}
+.dlg-sec:first-child{margin-top:2px}
+.pr{display:grid;grid-template-columns:56px 1fr 42px;gap:11px;align-items:center;margin-bottom:11px}
+.pr .nm{font-family:var(--kaiti);font-size:17px}
+.pr .sc{font-family:var(--mono);font-size:13px;text-align:right;color:var(--chalk-dim)}
+.why{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:5px;margin:-4px 0 4px}
+.why span{font-size:11.5px;border:1px solid var(--line);border-radius:2px;padding:1px 7px;color:var(--chalk-dim)}
+.why span.p{color:var(--g);border-color:rgba(155,196,138,.4)}
+.why span.n{color:var(--r);border-color:rgba(224,138,138,.35)}
+.why span.d{color:var(--y);border-color:rgba(227,197,103,.4)}
+.dish{display:flex;justify-content:space-between;font-size:13.5px;padding:4px 0;border-bottom:1px dashed var(--line)}
+.dish .mn{font-family:var(--mono);color:var(--chalk-dim)}
+.alt{display:grid;grid-template-columns:26px 1fr auto auto;gap:9px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line);cursor:pointer}
+.alt:hover{background:rgba(237,234,224,.05)}
+.alt .rk{font-family:var(--mono);font-size:12px;color:var(--chalk-dim)}
+.alt .nm{font-family:var(--kaiti);font-size:16px}
+.alt .cs{font-family:var(--mono);font-size:12.5px;color:var(--chalk-dim)}
+.alt .sc{font-family:var(--mono);font-size:13.5px;min-width:3.6em;text-align:right}
+.alt.cur{border:1px solid rgba(227,197,103,.5);border-radius:2px;padding:7px 9px;margin:2px 0}
+.alt.cur .nm{color:var(--y)}
+.dlg-foot{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+
+/* ---------- 移动端：格子拆成竖列表 ---------- */
+@media (max-width:820px){
+  .grid{grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:8px}
+  .dayhead,.rowhead,.corner{display:none}
+  .chit{grid-column:auto!important;grid-row:auto!important;transform:none!important;min-height:0}
+  .chit-day{display:block;font-size:11.5px;color:var(--chalk-dim);margin-bottom:3px;letter-spacing:.06em}
+  .chit-day.today{color:var(--y)}
+  .audit{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){
+  *{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1>这周吃啥</h1>
+      <div class="head-meta" id="headMeta"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-left:auto">
+      <button class="btn solid" id="btnShuffle">重排整周</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="field">
+      <label>怎么算大家满意</label>
+      <div class="seg" id="segAgg">
+        <button data-v="avg" aria-pressed="true">看平均</button>
+        <button data-v="minmax" aria-pressed="false">别让谁难受</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>花样程度</label>
+      <input type="range" id="rngDiv" min="0" max="2" step="0.1" value="1">
+      <span class="val" id="valDiv">1.0</span>
+    </div>
+    <div class="field">
+      <label>在乎省钱</label>
+      <input type="range" id="rngPrice" min="0.1" max="0.6" step="0.05" value="0.3">
+      <span class="val" id="valPrice">0.30</span>
+    </div>
+    <label class="chk"><input type="checkbox" id="cbRepeat" checked>一周内同一家店不重复</label>
+  </div>
+
+  <div class="summary" id="summary"></div>
+  <div class="grid" id="grid"></div>
+  <div class="audit" id="audit"></div>
+
+</div>
+
+<dialog id="dlg">
+  <div class="dlg-head">
+    <div>
+      <h3 id="dlgTitle">—</h3>
+      <div class="sub" id="dlgSub"></div>
+    </div>
+    <button class="btn" id="dlgClose" style="padding:6px 13px">关闭</button>
+  </div>
+  <div class="dlg-body" id="dlgBody"></div>
+</dialog>
+
+<script id="core">
+/* =========================================================
+   核心：数据 + 打分 + 求解（纯逻辑，不碰 DOM）
+   ========================================================= */
+
+const DAYS = ['周一','周二','周三','周四','周五','周六','周日'];
+const MEALS = ['lunch','dinner'];
+const MEAL_LABEL = {lunch:'午', dinner:'晚'};
+const TODAY = 2;                    // 周三
+const TASTE_SCALE = 16;
+
+/* ---- 四个人的口味档案 ---- */
+const PEOPLE = [
+  {id:'chen', name:'小陈', budget:28, dislikes:['香菜'], note:'爱吃辣，香菜绝对不行',
+   taste:{辣:4,麻辣:3,重口:2,川菜:2,饭:2,面:1,快餐:1,烧烤:1,清淡:-2,轻食:-3,沙拉:-3,健康:-2}},
+  {id:'hao', name:'阿豪', budget:35, dislikes:['香菜','内脏','生食'], note:'无辣不欢，生食内脏不碰',
+   taste:{辣:5,麻辣:5,重口:4,川菜:3,火锅:4,烧烤:4,快餐:2,新疆:2,饭:1,清淡:-4,轻食:-4,日料:-3,沙拉:-3}},
+  {id:'ting', name:'婷婷', budget:25, dislikes:['牛肉','羊肉','内脏'], note:'口味清淡，牛羊肉不吃',
+   taste:{清淡:5,汤:3,轻食:3,沙拉:3,粥:3,粤菜:2,健康:2,辣:-5,麻辣:-5,重口:-4,火锅:-4,烧烤:-3,生食:-2}},
+  {id:'wang', name:'老王', budget:32, dislikes:[], note:'什么都行，就是不想连着吃重样的',
+   taste:{面:3,饭:3,快餐:2,辣:2,日料:2,饺子:2,东北:2,韩餐:1}, variety:1.8}
+];
+
+/* ---- 附近能吃的店 ---- */
+const SHOPS = [
+  {id:'s1', name:'老王砂锅', cuisine:'川菜', walk:6, tags:['川菜','辣','麻辣','重口','饭','汤'],
+   dishes:[{n:'麻婆豆腐',p:18},{n:'回锅肉',p:22},{n:'水煮肉片',p:26,has:['猪肉']},{n:'砂锅饭',p:20}],
+   deals:[{label:'周三满20减5', days:[2], off:5, min:20}]},
+  {id:'s2', name:'川渝小面', cuisine:'川菜', walk:3, tags:['川菜','辣','面','快餐'],
+   dishes:[{n:'重庆小面',p:12},{n:'牛肉面',p:16,has:['牛肉']},{n:'豌杂面',p:14}]},
+  {id:'s3', name:'兰州拉面', cuisine:'西北', walk:4, tags:['西北','面','汤'],
+   dishes:[{n:'牛肉拉面',p:13,has:['牛肉']},{n:'加肉拉面',p:18,has:['牛肉']},{n:'凉面',p:12},{n:'素炒面',p:13}]},
+  {id:'s4', name:'沙县小吃', cuisine:'闽菜', walk:2, tags:['快餐','饭','汤','面'],
+   dishes:[{n:'拌面',p:8},{n:'蒸饺',p:10},{n:'扁肉汤',p:9},{n:'套餐饭',p:15}]},
+  {id:'s5', name:'张亮麻辣烫', cuisine:'麻辣烫', walk:5, tags:['辣','麻辣','汤'],
+   dishes:[{n:'自选麻辣烫',p:22}]},
+  {id:'s6', name:'杨国福麻辣烫', cuisine:'麻辣烫', walk:7, tags:['辣','麻辣','汤'],
+   dishes:[{n:'自选麻辣烫',p:24}], deals:[{label:'周二满20减4', days:[1], off:4, min:20}]},
+  {id:'s7', name:'老乡鸡', cuisine:'中式快餐', walk:8, tags:['快餐','饭','汤','清淡'],
+   dishes:[{n:'鸡汤套餐',p:26},{n:'小炒肉饭',p:22,has:['猪肉']},{n:'番茄鸡蛋饭',p:18}],
+   deals:[{label:'周四满20减6', days:[3], off:6, min:20}]},
+  {id:'s8', name:'米村拌饭', cuisine:'韩餐', walk:9, tags:['韩餐','饭','辣','快餐'],
+   dishes:[{n:'石锅拌饭',p:23},{n:'部队锅饭',p:27,has:['午餐肉']}]},
+  {id:'s9', name:'萨莉亚', cuisine:'西餐', walk:12, tags:['西餐','面','快餐'],
+   dishes:[{n:'肉酱意面',p:19},{n:'披萨',p:25},{n:'焗饭',p:26}],
+   deals:[{label:'工作日午市满18减6', days:[0,1,2,3,4], off:6, min:18, lunchOnly:true}]},
+  {id:'s10', name:'肯德基', cuisine:'快餐', walk:11, tags:['快餐','炸鸡','汉堡'],
+   dishes:[{n:'汉堡',p:25},{n:'套餐',p:35}], deals:[{label:'周四满25减8', days:[3], off:8, min:25}]},
+  {id:'s11', name:'麦当劳', cuisine:'快餐', walk:11, tags:['快餐','汉堡'],
+   dishes:[{n:'随心配',p:14},{n:'套餐',p:29}]},
+  {id:'s12', name:'黄焖鸡米饭', cuisine:'中式快餐', walk:3, tags:['饭','鸡','快餐'],
+   dishes:[{n:'黄焖鸡',p:18},{n:'加土豆黄焖鸡',p:20}]},
+  {id:'s13', name:'柳州螺蛳粉', cuisine:'广西', walk:5, tags:['辣','粉','重口'],
+   dishes:[{n:'螺蛳粉',p:16,has:['香菜']},{n:'加腐竹螺蛳粉',p:18,has:['香菜']}]},
+  {id:'s14', name:'轻食沙拉碗', cuisine:'轻食', walk:7, tags:['轻食','沙拉','清淡','健康'],
+   dishes:[{n:'鸡胸沙拉',p:26},{n:'三明治',p:19}], deals:[{label:'周三满19减8', days:[2], off:8, min:19}]},
+  {id:'s15', name:'回转寿司', cuisine:'日料', walk:13, tags:['日料','清淡'],
+   dishes:[{n:'寿司拼盘',p:28,has:['生食']},{n:'三文鱼饭',p:32,has:['生食','鱼']}]},
+  {id:'s16', name:'东北饺子馆', cuisine:'东北', walk:4, tags:['东北','饺子','面','汤'],
+   dishes:[{n:'猪肉白菜饺',p:15,has:['猪肉']},{n:'酸菜饺子',p:16},{n:'韭菜鸡蛋饺',p:14}]},
+  {id:'s17', name:'新疆大盘鸡', cuisine:'新疆', walk:10, tags:['新疆','辣','大盘','面'],
+   dishes:[{n:'大盘鸡拌面',p:28},{n:'大盘鸡米饭',p:30}]},
+  {id:'s18', name:'麻辣香锅', cuisine:'川菜', walk:6, tags:['川菜','辣','重口'],
+   dishes:[{n:'自选麻辣香锅',p:30}]},
+  {id:'s19', name:'卤肉饭', cuisine:'台菜', walk:3, tags:['饭','卤味','快餐'],
+   dishes:[{n:'卤肉饭',p:16,has:['猪肉']},{n:'鸡腿饭',p:18}]},
+  {id:'s20', name:'广式粥铺', cuisine:'粤菜', walk:5, tags:['粤菜','粥','清淡','汤'],
+   dishes:[{n:'皮蛋瘦肉粥',p:10,has:['猪肉']},{n:'肠粉',p:12},{n:'及第粥',p:12,has:['内脏']}]},
+  {id:'s21', name:'腊味煲仔饭', cuisine:'粤菜', walk:8, tags:['粤菜','饭','清淡'],
+   dishes:[{n:'腊味煲仔饭',p:24},{n:'滑鸡煲仔饭',p:22}]},
+  {id:'s22', name:'东北麻辣拌', cuisine:'东北', walk:6, tags:['东北','辣','凉菜'],
+   dishes:[{n:'自选麻辣拌',p:20}], deals:[{label:'周四满18减4', days:[3], off:4, min:18}]},
+  {id:'s23', name:'潮汕牛肉火锅', cuisine:'火锅', walk:14, tags:['火锅','汤','牛肉'],
+   dishes:[{n:'牛肉火锅',p:34,has:['牛肉']}]}
+];
+const SHOP_BY_ID = {};
+for (const s of SHOPS) SHOP_BY_ID[s.id] = s;
+
+/* ---- 小工具 ---- */
+const clamp = (v,a,b) => v<a?a:(v>b?b:v);
+const mean  = a => a.reduce((s,x)=>s+x,0)/a.length;
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* =========================================================
+   打分
+   ========================================================= */
+
+/* 这个人在这家店会点哪道菜：够预算、不含忌口、价格最贴近其"舒适消费" */
+function pickDish(u, s){
+  const ok = s.dishes.filter(d => d.p <= u.budget && !(d.has||[]).some(h => u.dislikes.includes(h)));
+  if (!ok.length) return null;
+  const target = u.budget * 0.68;
+  let best = ok[0];
+  for (const d of ok) if (Math.abs(d.p-target) < Math.abs(best.p-target)) best = d;
+  return best;
+}
+
+/* 口味匹配：店里贴的标签对上这个人好恶的总和 */
+function tasteFit(u, s){
+  let sum = 0;
+  for (const t of s.tags) if (u.taste[t]) sum += u.taste[t];
+  return clamp(sum / TASTE_SCALE, -1, 1);
+}
+
+/* 价格舒适：花掉预算七成左右最舒服，太便宜像没吃饱，超预算直接出局 */
+function priceComfort(u, price){
+  const r = price / u.budget;
+  return clamp(1 - Math.abs(r - 0.68) / 0.68, -1, 1);
+}
+
+function activeDeal(s, dayIdx, meal){
+  return (s.deals||[]).find(d => d.days.includes(dayIdx) && (!d.lunchOnly || meal === 'lunch')) || null;
+}
+
+/* 新鲜度惩罚：最近吃过同一家 / 同一菜系，越近罚越狠；老王这类人罚得更狠 */
+function freshness(u, s, dayIdx, acc, params){
+  let pen = 0;
+  for (let d = 0; d < dayIdx; d++){
+    for (const m of MEALS){
+      const slot = acc[d][m];
+      if (!slot) continue;
+      const prev = SHOP_BY_ID[slot.shopId];
+      if (!prev) continue;
+      const gap = dayIdx - d;
+      if (prev.id === s.id)   pen += 0.90 * Math.max(0, (3-gap)/3);
+      else if (prev.cuisine === s.cuisine) pen += 0.22 * Math.max(0, (2-gap)/2);
+    }
+  }
+  return clamp(pen * (u.variety||1) * params.diversity, 0, 1.2);
+}
+
+/* 单个用户对"某天某餐的某家店"的满意度 */
+function scoreUser(u, s, dayIdx, meal, acc, params){
+  const dish = pickDish(u, s);
+  if (!dish) return null;                       // 这个人吃不了这家
+  const deal   = activeDeal(s, dayIdx, meal);
+  const cut    = (deal && dish.p >= deal.min) ? deal.off : 0;
+  const price  = dish.p - cut;
+  const tf = tasteFit(u, s);
+  const pc = priceComfort(u, price);
+  const ds = cut ? clamp(cut/10, 0, 1) : 0;
+  const fr = freshness(u, s, dayIdx, acc, params);
+  const sat = clamp(params.wTaste*tf + params.wPrice*pc + params.wDeal*ds - fr, -1, 1);
+  return {dish, deal, cut, price, tf, pc, ds, fr, sat};
+}
+
+/* 一家店在某格的"群体分数"；有人吃不了就直接 null */
+function scoreSlot(s, dayIdx, meal, acc, params){
+  const per = {};
+  for (const u of PEOPLE){
+    const r = scoreUser(u, s, dayIdx, meal, acc, params);
+    if (!r) return null;
+    per[u.id] = r;
+  }
+  const sats = PEOPLE.map(u => per[u.id].sat);
+  const group = params.aggregate === 'minmax'
+    ? 0.65*Math.min.apply(null,sats) + 0.35*mean(sats)
+    : mean(sats);
+  const cost = mean(PEOPLE.map(u => per[u.id].price));
+  return {shopId:s.id, per, group, cost};
+}
+
+/* =========================================================
+   求解：把 7天×2餐 填满
+   ========================================================= */
+
+function usedSet(cp){
+  const used = new Set();
+  for (let d=0; d<7; d++) for (const m of MEALS) if (cp[d][m]) used.add(cp[d][m].shopId);
+  return used;
+}
+function cloneCp(cp){
+  return cp.map(row => ({
+    lunch:  row.lunch  ? {shopId: row.lunch.shopId}  : null,
+    dinner: row.dinner ? {shopId: row.dinner.shopId} : null
+  }));
+}
+
+/* 按天顺序重算整份计划，返回总分与每格明细（acc 里只含更早的格子，所以无循环依赖） */
+function evaluatePlan(cp, params){
+  const acc = Array.from({length:7}, () => ({lunch:null, dinner:null}));
+  let total = 0;
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const cur = cp[d][m];
+    if (!cur) continue;
+    const s = SHOP_BY_ID[cur.shopId];
+    if (!s) continue;
+    const sc = scoreSlot(s, d, m, acc, params);
+    if (!sc) continue;
+    acc[d][m] = sc;
+    total += sc.group;
+  }
+  // 重复惩罚：同一家店出现多次要扣分
+  const cnt = {};
+  for (let d=0; d<7; d++) for (const m of MEALS) if (acc[d][m]) cnt[acc[d][m].shopId] = (cnt[acc[d][m].shopId]||0)+1;
+  for (const k in cnt) if (cnt[k] > 1) total -= 0.6 * (cnt[k]-1);
+  return {total, acc};
+}
+
+/* 贪心填格：按天顺序，每格挑当前最划算的店 */
+function greedyFill(params, locked, rnd){
+  const cp = Array.from({length:7}, () => ({lunch:null, dinner:null}));
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const lk = locked[d+'-'+m];
+    if (lk){ cp[d][m] = {shopId: lk}; continue; }
+    const acc = evaluatePlan(cp, params).acc;
+    const used = params.noRepeat ? usedSet(cp) : new Set();
+    const scored = [];
+    for (const s of SHOPS){
+      if (used.has(s.id)) continue;
+      const sc = scoreSlot(s, d, m, acc, params);
+      if (sc) scored.push(sc);
+    }
+    if (!scored.length) continue;
+    scored.sort((a,b) => b.group - a.group);
+    const k = Math.min(scored.length-1, Math.floor(rnd() * Math.min(3, scored.length)));
+    cp[d][m] = {shopId: scored[k].shopId};
+  }
+  return cp;
+}
+
+/* 该格"之前的格子"不受本格改动影响，先拎出来当快速过滤器 */
+function prefixBefore(acc, d, m){
+  const pre = Array.from({length:7}, () => ({lunch:null, dinner:null}));
+  const stop = d*2 + (m === 'lunch' ? 0 : 1);
+  for (let dd=0; dd<7; dd++) for (const mm of MEALS){
+    const i = dd*2 + (mm === 'lunch' ? 0 : 1);
+    if (i < stop && acc[dd][mm]) pre[dd][mm] = acc[dd][mm];
+  }
+  return pre;
+}
+
+/* 局部搜索：一格一格试，能变好就换；一整轮都换不动才停 */
+function localSearch(cp, params, locked, maxPasses){
+  let cur = evaluatePlan(cp, params).total;
+  for (let p=0; p<maxPasses; p++){
+    let improved = false;
+    for (let d=0; d<7; d++) for (const m of MEALS){
+      if (locked[d+'-'+m]) continue;
+
+      const curEv   = evaluatePlan(cp, params);
+      const curSlot = curEv.acc[d][m];
+      const floor   = curSlot ? curSlot.group : -Infinity;
+      const pre     = prefixBefore(curEv.acc, d, m);
+      const used    = params.noRepeat ? usedSet(cp) : new Set();
+      if (cp[d][m]) used.delete(cp[d][m].shopId);
+
+      let bestId = null, bestTotal = cur;
+      for (const s of SHOPS){
+        if (used.has(s.id)) continue;
+        if (cp[d][m] && cp[d][m].shopId === s.id) continue;
+        const local = scoreSlot(s, d, m, pre, params);
+        if (!local || local.group <= floor + 1e-9) continue;   // 便宜的先筛掉
+        const trial = cloneCp(cp);
+        trial[d][m] = {shopId: s.id};
+        const v = evaluatePlan(trial, params).total;            // 真正说了算的是整份计划的总分
+        if (v > bestTotal + 1e-9){ bestTotal = v; bestId = s.id; }
+      }
+      if (bestId){ cp[d][m] = {shopId: bestId}; cur = bestTotal; improved = true; }
+    }
+    if (!improved) break;
+  }
+  return {cp, total:cur};
+}
+
+function solve(params, locked, restarts, seed){
+  const rnd = mulberry32(seed || 20261014);
+  let best = null, bestVal = -1e9, bestAcc = null;
+  for (let r=0; r<restarts; r++){
+    let cp = greedyFill(params, locked, rnd);
+    const res = localSearch(cp, params, locked, 10);
+    if (res.total > bestVal){
+      const ev = evaluatePlan(res.cp, params);
+      bestVal = ev.total; best = res.cp; bestAcc = ev.acc;
+    }
+  }
+  return {cp: best, acc: bestAcc, total: bestVal};
+}
+
+/* 固定其它格子，单看某一格的备选排行 */
+function alternativesFor(cp, d, m, params){
+  const out = [];
+  for (const s of SHOPS){
+    const trial = cloneCp(cp);
+    trial[d][m] = {shopId: s.id};
+    const ev = evaluatePlan(trial, params);
+    const slot = ev.acc[d][m];
+    if (!slot) continue;
+    out.push({shopId:s.id, slotScore:slot.group, slot, planTotal:ev.total});
+  }
+  out.sort((a,b) => b.slotScore - a.slotScore);
+  return out;
+}
+
+/* 谁被哪家店挡住了：只要有一个人吃不下，这一队就不会去这家 */
+function exclusionReport(){
+  const rows = [];
+  for (const s of SHOPS){
+    const blocked = [];
+    for (const u of PEOPLE){
+      if (pickDish(u, s)) continue;
+      const why = [];
+      const cheapest = Math.min.apply(null, s.dishes.map(d=>d.p));
+      if (cheapest > u.budget) why.push('最低 ¥'+cheapest+' 超预算');
+      const bad = s.dishes.every(d => (d.has||[]).some(h => u.dislikes.includes(h)));
+      if (bad) why.push('不吃'+(s.dishes[0].has||[]).join('/'));
+      blocked.push({name:u.name, why:why.join('，') || '没有能吃的菜'});
+    }
+    if (blocked.length) rows.push({
+      shop: s,
+      allIn: blocked.length === PEOPLE.length,
+      blocked
+    });
+  }
+  rows.sort((a,b) => b.blocked.length - a.blocked.length);
+  return rows;
+}
+
+/* 用于命令行自检的出口 */
+if (typeof module !== 'undefined' && module.exports){
+  module.exports = {PEOPLE, SHOPS, SHOP_BY_ID, DAYS, MEALS, pickDish, tasteFit, priceComfort,
+    scoreUser, scoreSlot, evaluatePlan, greedyFill, localSearch, solve, alternativesFor,
+    exclusionReport, usedSet, mean, clamp};
+}
+</script>
+
+<script>
+/* =========================================================
+   界面
+   ========================================================= */
+const state = {
+  params: {aggregate:'avg', diversity:1, wPrice:0.3, wTaste:0.5, wDeal:0.2, noRepeat:true},
+  locked: {},
+  cp: null,
+  acc: null,
+  open: null
+};
+
+function readParams(){
+  const p = state.params;
+  p.wTaste = Math.round((0.8 - p.wPrice)*100)/100;
+  p.wDeal = 0.2;
+  return p;
+}
+
+function recompute(seed){
+  readParams();
+  const res = solve(state.params, state.locked, 8, seed || 20261014);
+  state.cp = res.cp;
+  state.acc = res.acc;
+  render();
+}
+
+/* 滑杆会连发事件，抖一下再算 */
+let pending = null;
+function recomputeSoon(seed){
+  if (pending) clearTimeout(pending);
+  pending = setTimeout(() => { pending = null; recompute(seed); }, 180);
+}
+
+/* ---------- 头部与摘要 ---------- */
+function renderHead(){
+  const n = DAYS.length * MEALS.length;
+  let spend = 0;
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const slot = state.acc[d][m]; if (!slot) continue;
+    for (const u of PEOPLE) spend += slot.per[u.id].price;
+  }
+  const perPerson = spend / PEOPLE.length;
+  document.getElementById('headMeta').innerHTML =
+    '10月12日 – 10月18日 · <b>4 人</b> · <b>'+n+' 顿</b> · 已锁定 '+
+    Object.keys(state.locked).length+' 格';
+
+  let satSum = 0, cnt = 0, repeats = 0;
+  const seen = {};
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const slot = state.acc[d][m]; if (!slot) continue;
+    satSum += slot.group; cnt++;
+    seen[slot.shopId] = (seen[slot.shopId]||0)+1;
+  }
+  for (const k in seen) if (seen[k] > 1) repeats += seen[k]-1;
+  const avgSat = cnt ? satSum/cnt : 0;
+
+  const tightest = PEOPLE.slice().sort((a,b)=>a.budget-b.budget)[0];
+  const chips = [
+    {cls:'', b:'¥'+Math.round(perPerson), t:'整周人均餐费'},
+    {cls: avgSat>0.35?'good':(avgSat>0.1?'':'warn'), b:(avgSat*100).toFixed(0), t:'平均满意度（满 100）'},
+    {cls: repeats?'warn':'good', b:String(repeats), t:'一周内重复的店'},
+    {cls:'', b:'¥'+tightest.budget, t:'最紧的预算是'+tightest.name}
+  ];
+  document.getElementById('summary').innerHTML = chips.map(c =>
+    '<div class="chip '+c.cls+'"><b>'+c.b+'</b>'+c.t+'</div>').join('');
+}
+
+/* ---------- 排班格子 ---------- */
+function barClass(v){ return v > 0.45 ? '' : (v > 0.1 ? 'mid' : 'low'); }
+
+function renderGrid(){
+  const g = document.getElementById('grid');
+  const TILTS = ['-.35deg','.28deg','-.18deg','.4deg','-.42deg','.2deg','-.25deg'];
+
+  /* 表头（桌面端才有名字；手机端靠格子里的小标签） */
+  let html = '<div class="corner"></div>';
+  for (let d=0; d<7; d++)
+    html += '<div class="dayhead'+(d===TODAY?' today':'')+'">'+DAYS[d]+'</div>';
+  html += '<div class="rowhead">'+MEAL_LABEL.lunch+'</div>';
+  html += '<div class="rowhead">'+MEAL_LABEL.dinner+'</div>';
+
+  /* 格子按"天"排列：手机端会自然读成 周一午、周一晚、周二午… */
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const slot = state.acc[d][m];
+    const col = d+2, row = (m==='lunch'?2:3);
+    const isToday = d===TODAY ? ' today' : '';
+    const isLocked = state.locked[d+'-'+m] ? ' locked' : '';
+    const style = 'grid-column:'+col+';grid-row:'+row+';--tilt:'+TILTS[(d + (m==='dinner'?3:0)) % TILTS.length]+';';
+    if (!slot){
+      html += '<button class="chit'+isToday+isLocked+'" style="'+style+'" data-d="'+d+'" data-m="'+m+'">'+
+        '<span class="chit-day'+isToday+'">'+DAYS[d]+' '+MEAL_LABEL[m]+'</span>'+
+        '<span class="chit-shop" style="color:var(--chalk-dim)">没有可选的店</span>'+
+        '<span class="chit-tag">放宽预算或忌口试试</span></button>';
+      continue;
+    }
+    const s = SHOP_BY_ID[slot.shopId];
+    const pct = Math.round(((slot.group+1)/2)*100);
+    html += '<button class="chit'+isToday+isLocked+'" style="'+style+'" data-d="'+d+'" data-m="'+m+'">'+
+      (isLocked?'<span class="chit-lockbadge">◆</span>':'')+
+      '<span class="chit-day'+isToday+'">'+DAYS[d]+' '+MEAL_LABEL[m]+'</span>'+
+      '<span class="chit-shop">'+s.name+'</span>'+
+      '<span class="chit-tag">'+s.cuisine+' · 走 '+s.walk+' 分</span>'+
+      '<span class="chit-price"><b>¥'+Math.round(slot.cost)+'</b>人均'+
+        (slot.per[PEOPLE[0].id].cut ? '<span class="chit-deal">已减¥'+slot.per[PEOPLE[0].id].cut+'</span>' : '')+
+      '</span>'+
+      '<span class="bar '+barClass(slot.group)+'"><i style="width:'+pct+'%"></i></span>'+
+      '</button>';
+  }
+  g.innerHTML = html;
+  g.querySelectorAll('.chit').forEach(el => {
+    el.addEventListener('click', () => openDetail(+el.dataset.d, el.dataset.m));
+  });
+}
+
+/* ---------- 账目审计 ---------- */
+function renderAudit(){
+  const spend = {}; const satSum = {}; const satCnt = {};
+  for (const u of PEOPLE){ spend[u.id]=0; satSum[u.id]=0; satCnt[u.id]=0; }
+  const cuisine = {};
+  for (let d=0; d<7; d++) for (const m of MEALS){
+    const slot = state.acc[d][m]; if (!slot) continue;
+    const s = SHOP_BY_ID[slot.shopId];
+    cuisine[s.cuisine] = (cuisine[s.cuisine]||0)+1;
+    for (const u of PEOPLE){
+      spend[u.id] += slot.per[u.id].price;
+      satSum[u.id] += slot.per[u.id].sat;
+      satCnt[u.id] += 1;
+    }
+  }
+  const maxSpend = Math.max.apply(null, PEOPLE.map(u => u.budget*14));
+
+  let left = '<h2>每个人的账</h2>';
+  for (const u of PEOPLE){
+    const over = spend[u.id] > u.budget*14;
+    const w = Math.min(100, Math.round(spend[u.id]/maxSpend*100));
+    const sat = satCnt[u.id] ? satSum[u.id]/satCnt[u.id] : 0;
+    left += '<div class="person"><span class="nm">'+u.name+'</span>'+
+      '<span class="bar '+barClass(sat)+'" style="margin:0"><i style="width:'+w+'%"></i></span>'+
+      '<span class="mn'+(over?' over':'')+'">¥'+Math.round(spend[u.id])+' / '+(u.budget*14)+'</span></div>'+
+      '<div class="prow" style="margin:-4px 0 12px 62px"><span>满意度 '+(sat*100).toFixed(0)+
+      '</span><span>'+u.note+'</span></div>';
+  }
+
+  const entries = Object.entries(cuisine).sort((a,b)=>b[1]-a[1]);
+  const maxC = entries.length ? Math.max.apply(null, entries.map(e=>e[1])) : 1;
+  let mid = '<h2>这周吃了哪些口味</h2>';
+  for (const [c,n] of entries){
+    mid += '<div class="prow"><span class="k" style="min-width:4.6em">'+c+'</span>'+
+      '<span class="bar" style="flex:1;margin:0 10px"><i style="width:'+Math.round(n/maxC*100)+'%"></i></span>'+
+      '<span>'+n+' 顿</span></div>';
+  }
+
+  const excl = exclusionReport();
+  let right = '<h2>压根没机会的店</h2>';
+  if (!excl.length) right += '<div class="note">没有店被排除。</div>';
+  for (const r of excl){
+    right += '<div class="excl"><s>'+r.shop.name+'</s> <em>'+
+      (r.allIn ? '全队吃不了' : r.blocked.map(b=>b.name).join('、')+'吃不了')+'</em><br>'+
+      r.blocked.map(b => b.name+'：'+b.why).join('；')+'</div>';
+  }
+  right += '<div class="note">只要有一个人吃不下，这一队就不会去这家——所以这里列出的店全程都不会出现在菜单里。</div>';
+
+  document.getElementById('audit').innerHTML = left + '<div>'+mid+'</div>' + '<div>'+right+'</div>';
+}
+
+/* ---------- 明细弹层 ---------- */
+function openDetail(d, m){
+  state.open = {d, m};
+  const slot = state.acc[d][m];
+  const s = slot ? SHOP_BY_ID[slot.shopId] : null;
+  document.getElementById('dlgTitle').textContent = DAYS[d] + ' ' + (m==='lunch'?'午餐':'晚餐') + (s ? ' · ' + s.name : '');
+  document.getElementById('dlgSub').textContent = s
+    ? s.cuisine + ' · 走 ' + s.walk + ' 分 · 人均 ¥' + Math.round(slot.cost) + ' · 群体分 ' + slot.group.toFixed(2)
+    : '这一格没有可选的店';
+
+  let body = '';
+  if (slot){
+    body += '<div class="dlg-sec">为什么是这家</div>';
+    for (const u of PEOPLE){
+      const r = slot.per[u.id];
+      const pct = Math.round(((r.sat+1)/2)*100);
+      body += '<div class="pr"><span class="nm">'+u.name+'</span>'+
+        '<span class="bar '+barClass(r.sat)+'" style="margin:0"><i style="width:'+pct+'%"></i></span>'+
+        '<span class="sc">'+r.sat.toFixed(2)+'</span>';
+      const bits = [];
+      for (const t of s.tags) if (u.taste[t] && Math.abs(u.taste[t])>=2)
+        bits.push('<span class="'+(u.taste[t]>0?'p':'n')+'">'+(u.taste[t]>0?'爱':'烦')+t+'</span>');
+      if (r.tf < 0 && !bits.length) bits.push('<span class="n">口味不对路</span>');
+      bits.push('<span class="'+(r.pc>0?'p':'n')+'">¥'+Math.round(r.price)+' 占预算 '+Math.round(r.price/u.budget*100)+'%</span>');
+      if (r.cut) bits.push('<span class="d">'+r.deal.label+'</span>');
+      if (r.fr > 0.05) bits.push('<span class="n">最近吃过 -'+r.fr.toFixed(2)+'</span>');
+      body += '<div class="why">'+bits.join('')+'</div>';
+      body += '</div>';
+    }
+
+    body += '<div class="dlg-sec">各人点了什么</div>';
+    for (const u of PEOPLE){
+      const r = slot.per[u.id];
+      body += '<div class="dish"><span>'+u.name+' → '+r.dish.n+
+        (r.cut?' <span style="color:var(--y);font-size:12px">'+r.deal.label+'</span>':'')+
+        '</span><span class="mn">¥'+r.dish.p+(r.cut?' → ¥'+r.price:'')+'</span></div>';
+    }
+
+    body += '<div class="dlg-sec">这一格还能选谁（从好到差）</div>';
+    const alts = alternativesFor(state.cp, d, m, state.params).slice(0, 7);
+    alts.forEach((a, i) => {
+      const as = SHOP_BY_ID[a.shopId];
+      const cur = a.shopId === slot.shopId ? ' cur' : '';
+      body += '<div class="alt'+cur+'" data-shop="'+a.shopId+'">'+
+        '<span class="rk">'+(i+1)+'</span>'+
+        '<span class="nm">'+as.name+(cur?' · 当前':'')+'</span>'+
+        '<span class="cs">'+as.cuisine+' ¥'+Math.round(a.slot.cost)+'</span>'+
+        '<span class="sc">'+a.slotScore.toFixed(2)+'</span></div>';
+    });
+
+    const isLocked = !!state.locked[d+'-'+m];
+    body += '<div class="dlg-foot">'+
+      '<button class="btn" id="btnSwap">随机换一个</button>'+
+      '<button class="btn'+(isLocked?' solid':'')+'" id="btnLock">'+(isLocked?'取消锁定':'锁定这一格')+'</button>'+
+      '<button class="btn" id="btnBan">这家以后别选了</button>'+
+      '</div>';
+  }
+
+  document.getElementById('dlgBody').innerHTML = body;
+
+  document.querySelectorAll('#dlgBody .alt').forEach(el => {
+    el.addEventListener('click', () => {
+      state.cp[d][m] = {shopId: el.dataset.shop};
+      refreshFromCp(); openDetail(d, m);
+    });
+  });
+  const bs = document.getElementById('btnSwap');
+  if (bs) bs.addEventListener('click', () => {
+    const alts = alternativesFor(state.cp, d, m, state.params).filter(a => a.shopId !== slot.shopId);
+    if (!alts.length) return;
+    const pick = alts[Math.floor(Math.random()*Math.min(4, alts.length))];
+    state.cp[d][m] = {shopId: pick.shopId};
+    refreshFromCp(); openDetail(d, m);
+  });
+  const bl = document.getElementById('btnLock');
+  if (bl) bl.addEventListener('click', () => {
+    const k = d+'-'+m;
+    if (state.locked[k]) delete state.locked[k]; else state.locked[k] = slot.shopId;
+    refreshFromCp(); openDetail(d, m);
+  });
+  const bn = document.getElementById('btnBan');
+  if (bn) bn.addEventListener('click', () => {
+    document.getElementById('dlg').close();
+    banShop(slot.shopId);
+  });
+
+  if (!document.getElementById('dlg').open) document.getElementById('dlg').showModal();
+}
+
+const BANNED = new Set();
+function banShop(id){
+  BANNED.add(id);
+  const idx = SHOPS.findIndex(s => s.id === id);
+  if (idx >= 0) SHOPS.splice(idx, 1);
+  for (const k in state.locked) if (state.locked[k] === id) delete state.locked[k];
+  recompute();                       // 重新排单，别把那格留空
+}
+
+function refreshFromCp(){
+  const ev = evaluatePlan(state.cp, state.params);
+  state.acc = ev.acc;
+  render();
+}
+
+/* ---------- 渲染总入口 ---------- */
+function render(){
+  renderHead();
+  renderGrid();
+  renderAudit();
+}
+
+/* ---------- 交互绑定 ---------- */
+document.getElementById('btnShuffle').addEventListener('click', () => {
+  recompute(Math.floor(Math.random()*1e9));
+});
+document.querySelectorAll('#segAgg button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#segAgg button').forEach(x => x.setAttribute('aria-pressed','false'));
+    b.setAttribute('aria-pressed','true');
+    state.params.aggregate = b.dataset.v;
+    recompute();
+  });
+});
+document.getElementById('rngDiv').addEventListener('input', e => {
+  state.params.diversity = parseFloat(e.target.value);
+  document.getElementById('valDiv').textContent = state.params.diversity.toFixed(1);
+  recomputeSoon();
+});
+document.getElementById('rngPrice').addEventListener('input', e => {
+  state.params.wPrice = parseFloat(e.target.value);
+  document.getElementById('valPrice').textContent = state.params.wPrice.toFixed(2);
+  recomputeSoon();
+});
+document.getElementById('cbRepeat').addEventListener('change', e => {
+  state.params.noRepeat = e.target.checked;
+  recompute();
+});
+document.getElementById('dlgClose').addEventListener('click', () => document.getElementById('dlg').close());
+document.getElementById('dlg').addEventListener('click', e => {
+  if (e.target.id === 'dlg') document.getElementById('dlg').close();
+});
+
+recompute();
+</script>
+</body>
+</html>
